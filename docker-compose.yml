@@ -1,0 +1,70 @@
+version: "3.7"
+
+services:
+
+  api:
+    image: api
+    build: ./api
+    labels:
+      traefik.frontend.rule: "Host:spring-boot-api.local.com"
+      traefik.frontend.entryPoints: "http"
+      traefik.protocol: "http"
+      traefik.port: "8080"
+      traefik.enable: "true"
+    env_file:
+      - ./api/.env
+    volumes:
+      - ./api/src:/home/app/src
+    depends_on:
+      - traefik
+      - mongodb
+    secrets:
+      - source: mongodb_uri
+        target: mongodb_uri
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    env_file:
+      - ./mongodb/.env
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongodb/init/:/docker-entrypoint-initdb.d
+      - ./mongodb/init:/home/mongodb
+      - mongodb_data:/data/db
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express
+    restart: always
+    labels:
+      traefik.frontend.rule: "Host:mongo-express.local.com"
+      traefik.frontend.entryPoints: "http"
+      traefik.protocol: "http"
+      traefik.port: "8081"
+      traefik.enable: "true"
+    env_file:
+      - ./mongodb/.env
+
+  traefik:
+    image: traefik:1.7
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./etc/traefik/traefik.toml:/etc/traefik/traefik.toml
+
+volumes:
+  mongodb_data:
+
+networks:
+  default:
+    name: mongodb_network
+
+secrets:
+  mongodb_uri:
+    file: ./etc/secrets/local_mongodb_uri
